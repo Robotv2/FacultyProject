@@ -23,17 +23,21 @@ class FacultyOptimizer:
         self._add_constraints()
 
     def _add_constraints(self):
+        # Each course must have at least min_groups faculty members assigned and at most max_groups faculty members assigned
         for i in range(len(self.courses)):
             self.model += lpSum(self.x[i, j] for j in range(len(self.faculty_members))) >= self.min_groups[i]
             self.model += lpSum(self.x[i, j] for j in range(len(self.faculty_members))) <= self.max_groups[i]
 
+        # Each faculty member must have at least one course assigned
         for j in range(len(self.faculty_members)):
             self.model += lpSum(self.x[i, j] for i in range(len(self.courses))) >= 1
 
+        # Trimester Credits constraints
         for j in range(len(self.faculty_members)):
             for t in set(self.trimesters):
                 self.model += lpSum(self.x[i, j] * self.credits[i] for i in range(len(self.courses)) if self.trimesters[i] == t) <= self.max_credits_per_trimester
 
+        # Total credits constraints
         for j in range(len(self.faculty_members)):
             self.model += lpSum(self.x[i, j] * self.credits[i] for i in range(len(self.courses))) >= self.min_total_credits
             self.model += lpSum(self.x[i, j] * self.credits[i] for i in range(len(self.courses))) <= self.max_total_credits

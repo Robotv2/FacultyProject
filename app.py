@@ -2,8 +2,8 @@ import pandas as pd
 import streamlit as st
 from matplotlib import pyplot as plt
 
+from monte_carlo import run_monte_carlo_simulation
 from optimizer import FacultyOptimizer
-
 
 def main():
     st.title("Faculty Course Assignment Optimizer")
@@ -20,12 +20,12 @@ def main():
         total_happiness, assignment_details, faculty_credits, faculty_trimester_credits, not_assigned_courses, solution_status  = optimizer.get_results()
 
         # Use tabs for better navigation
-        tabs = st.tabs(["Summary", "Assignments", "Credits", "Not Assigned"])
+        tabs = st.tabs(["Summary", "Assignments", "Credits", "Not Assigned", "Monte Carlo Simulation"])
 
         # Summary Tab
         with tabs[0]:
             st.header("Summary")
-            st.metric(label="Solution Status", value=(solution_status))
+            st.metric(label="Solution Status", value=solution_status)
             st.metric(label="Total Happiness Score", value=total_happiness)
             st.metric(label="Total Faculty Members", value=len(optimizer.faculty_members))
             st.metric(label="Total Courses", value=len(optimizer.courses))
@@ -84,6 +84,29 @@ def main():
                     st.write(f"- {course}")
             else:
                 st.write("All courses have been assigned.")
+
+        # Monte Carlo Simulation Tab
+        with tabs[4]:
+            st.header("Monte Carlo Simulation Results")
+            if st.button("Run Monte Carlo Simulation"):
+                best_allocation, best_happiness = run_monte_carlo_simulation(optimizer)
+
+                st.subheader("Best Allocation from Monte Carlo Simulation")
+                st.write(f"Best Happiness Index: {best_happiness:.2f}")
+
+                # Display the best allocation
+                best_allocation_details = []
+                for (i, j), value in best_allocation.items():
+                    if value == 1:
+                        faculty_name = optimizer.faculty_members[j]
+                        course_code = optimizer.courses[i]
+                        happiness = optimizer.happiness_index[i][j]
+                        credits = optimizer.credits[i]
+                        trimester = optimizer.trimesters[i]
+                        best_allocation_details.append((faculty_name, course_code, happiness, credits, trimester))
+
+                best_allocation_df = pd.DataFrame(best_allocation_details, columns=["Faculty", "Course", "Happiness", "Credits", "Trimester"])
+                st.dataframe(best_allocation_df)
 
 if __name__ == "__main__":
     main()
