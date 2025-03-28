@@ -1,111 +1,81 @@
-import os
-
-import altair as alt
 import pandas as pd
 import streamlit as st
+from matplotlib import pyplot as plt
 
-import optimizer
-from optimizer import solve_from_path
-
-# Streamlit app title with custom styling
-st.markdown("""
-    <style>
-    .title {
-        font-size: 36px;
-        font-weight: bold;
-        color: #4CAF50;
-        text-align: center;
-    }
-    .header {
-        font-size: 24px;
-        color: #555;
-    }
-    .success {
-        color: green;
-    }
-    .warning {
-        color: orange;
-    }
-    </style>
-    <div class="title">Interactive Course Allocation Dashboard</div>
-    """, unsafe_allow_html=True)
+from optimizer import FacultyOptimizer
 
 
 def main():
-    # Ensure the uploads directory exists
-    upload_dir = "uploads"
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir)
+    st.title("Faculty Course Assignment Optimizer")
 
-    # File upload widget in the sidebar
-    st.sidebar.header("Upload Data")
-    uploaded_file = st.sidebar.file_uploader("Upload your CSV or Excel file", type=["csv", "xlsx", "xls"])
+    st.sidebar.header("Configuration")
+    uploaded_file = st.sidebar.file_uploader("Upload your Excel file", type=["xlsx"])
+    max_credits_per_trimester = st.sidebar.number_input("Max Credits per Trimester", min_value=1, value=6)
+    min_total_credits = st.sidebar.number_input("Min Total Credits", min_value=1, value=10)
+    max_total_credits = st.sidebar.number_input("Max Total Credits", min_value=1, value=16)
 
-    # Interactive filters
-    st.sidebar.header("Filters")
-    trimester_limit = st.sidebar.slider("Trimester Credit Limit", 1, 10, 6)
-    annual_min_limit = st.sidebar.slider("Annual Min Credit Limit", 5, 20, 10)
-    annual_max_limit = st.sidebar.slider("Annual Max Credit Limit", 10, 30, 16)
+    if uploaded_file:
+        optimizer = FacultyOptimizer(uploaded_file, max_credits_per_trimester, min_total_credits, max_total_credits)
+        optimizer.solve()
+        total_happiness, assignment_details, faculty_credits, faculty_trimester_credits, not_assigned_courses = optimizer.get_results()
 
-    if uploaded_file is not None:
-        file_path = os.path.join(upload_dir, uploaded_file.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+        # Use tabs for better navigation
+        tabs = st.tabs(["Summary", "Assignments", "Credits", "Not Assigned"])
 
-        # Check if the file exists
-        if not os.path.exists(file_path):
-            st.error(f"File not found: {file_path}")
-        else:
-            # Solve the optimization problem with interactive limits
-            result: optimizer.OptimizerResult = solve_from_path(file_path, trimester_limit, annual_min_limit,
-                                                                annual_max_limit)
+        # Summary Tab
+        with tabs[0]:
+            st.header("Summary")
+            st.metric(label="Total Happiness Score", value=total_happiness)
+            st.metric(label="Total Faculty Members", value=len(optimizer.faculty_members))
+            st.metric(label="Total Courses", value=len(optimizer.courses))
 
-            if result is None:
-                st.markdown('<div class="header">No optimal solution found.</div>', unsafe_allow_html=True)
-                return
+        # Assignments Tab
+        with tabs[1]:
+            st.header("Faculty Course Assignments")
 
-            # Display general summary
-            st.markdown('<div class="header">General Summary</div>', unsafe_allow_html=True)
-            st.write(f"Total Happiness Index: {result.happiness_index}")
-            st.write("Total Credits per Faculty:")
-            st.json(result.faculty_credits)
+            # Create a DataFrame with essential information
+            assignments_df = pd.DataFrame(assignment_details, columns=["Faculty", "Course", "Happiness", "Credits", "Trimester"])
 
-            if result.unassigned_courses:
-                st.markdown('<div class="warning">Unassigned Courses:</div>', unsafe_allow_html=True)
-                st.write(result.unassigned_courses)
+            # Display a simplified view initially
+            st.dataframe(assignments_df[["Faculty", "Course", "Credits"]])
+
+            # Use expanders for detailed view
+            st.subheader("Detailed View")
+            for faculty, group in assignments_df.groupby("Faculty"):
+                with st.expander(f"{faculty}"):
+                    st.write(group[["Course", "Happiness", "Credits", "Trimester"]])
+
+        # Credits Tab
+        with tabs[2]:
+            st.header("Faculty Credits Summary")
+            credits_summary = []
+            for faculty, total_credits in faculty_credits.items():
+                trimester_credits_str = ", ".join([f"T{t}: {c}" for t, c in faculty_trimester_credits[faculty].items()])
+                credits_summary.append([faculty, total_credits, trimester_credits_str])
+
+            credits_df = pd.DataFrame(credits_summary, columns=["Faculty", "Total Credits", "Credits per Trimester"])
+            st.dataframe(credits_df)
+
+            # Plot credits distribution
+            st.subheader("Credits Distribution")
+            faculty_names = list(faculty_credits.keys())
+            total_credits_values = list(faculty_credits.values())
+            fig, ax = plt.subplots()
+            ax.bar(faculty_names, total_credits_values)
+            ax.set_xlabel("Faculty")
+            ax.set_ylabel("Total Credits")
+            ax.set_title("Total Credits per Faculty")
+            plt.xticks(rotation=90)
+            st.pyplot(fig)
+
+        # Not Assigned Tab
+        with tabs[3]:
+            st.header("Courses Not Assigned")
+            if not_assigned_courses:
+                for course in not_assigned_courses:
+                    st.write(f"- {course}")
             else:
-                st.markdown('<div class="success">All courses have been assigned.</div>', unsafe_allow_html=True)
+                st.write("All courses have been assigned.")
 
-            # Display course assignments
-            st.markdown('<div class="header">Course Assignments</div>', unsafe_allow_html=True)
-            assignments_df = result.to_df()
-            st.dataframe(assignments_df.style.map(lambda val: 'background-color: darkgreen' if val == 1 else 'background-color: red'))
-
-            # Display specific summary for each faculty
-            st.markdown('<div class="header">Faculty Specific Summary</div>', unsafe_allow_html=True)
-            for faculty_id, credits in result.faculty_credits.items():
-                with st.expander(f"Faculty {faculty_id}"):
-                    st.write(f"Total Credits: {credits}")
-                    faculty_courses = [course for course, f_id in result.course_assignments.items() if f_id == faculty_id]
-                    st.write("Assigned Courses:")
-                    st.write(faculty_courses)
-
-                    # Visualize faculty workload
-                    chart_data = pd.DataFrame({
-                        'Course': faculty_courses,
-                        'Credits': [
-                            result.faculty_credits[result.course_assignments[course]] for course in faculty_courses]
-                    })
-
-                    chart = alt.Chart(chart_data).mark_bar().encode(
-                        x='Course',
-                        y='Credits',
-                        color=alt.value('steelblue')
-                    ).properties(
-                        title=f"Faculty {faculty_id} Workload"
-                    )
-
-                    st.altair_chart(chart, use_container_width=True)
-
-
-main()
+if __name__ == "__main__":
+    main()

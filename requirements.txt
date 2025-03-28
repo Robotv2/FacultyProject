@@ -3,3 +3,4 @@ pandas~=2.2.3
 streamlit~=1.44.0
 PuLP~=3.1.1
 openpyxl
+matplotlib
