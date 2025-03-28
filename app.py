@@ -34,13 +34,9 @@ def main():
         with tabs[1]:
             st.header("Faculty Course Assignments")
 
-            # Create a DataFrame with essential information
             assignments_df = pd.DataFrame(assignment_details, columns=["Faculty", "Course", "Happiness", "Credits", "Trimester"])
-
-            # Display a simplified view initially
             st.dataframe(assignments_df[["Faculty", "Course", "Credits"]])
 
-            # Use expanders for detailed view
             st.subheader("Detailed View")
             for faculty, group in assignments_df.groupby("Faculty"):
                 with st.expander(f"{faculty}"):
@@ -60,13 +56,23 @@ def main():
             # Plot credits distribution
             st.subheader("Credits Distribution")
             faculty_names = list(faculty_credits.keys())
-            total_credits_values = list(faculty_credits.values())
+            trimesters = sorted(set(optimizer.trimesters))
+
+            # Prepare data for stacked bar chart
+            bottom_values = [0] * len(faculty_names)
             fig, ax = plt.subplots()
-            ax.bar(faculty_names, total_credits_values)
+
+            for trimester in trimesters:
+                credits_values = [faculty_trimester_credits[faculty][trimester] for faculty in faculty_names]
+                ax.bar(faculty_names, credits_values, bottom=bottom_values, label=f"Trimester {trimester}")
+                bottom_values = [b + c for b, c in zip(bottom_values, credits_values)]
+
             ax.set_xlabel("Faculty")
             ax.set_ylabel("Total Credits")
-            ax.set_title("Total Credits per Faculty")
+            ax.set_title("Total Credits per Faculty by Trimester")
+            ax.legend(loc='lower center', title="Trimester", ncol=len(trimesters))
             plt.xticks(rotation=90)
+            plt.tight_layout()
             st.pyplot(fig)
 
         # Not Assigned Tab
