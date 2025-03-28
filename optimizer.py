@@ -16,7 +16,7 @@ def solve_from_path(file_path: str, trimester_limit=6, annual_min=10, annual_max
     faculty_members = []
     faculty_preferences = {}
 
-    faculty_ids = [col for col in df.columns if col.startswith('Faculty_')]
+    faculty_ids = [col for col in df.columns if col.startswith('Faculty')]
 
     for faculty_id in faculty_ids:
         faculty_preferences[faculty_id] = {}
