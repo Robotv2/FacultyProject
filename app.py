@@ -28,6 +28,7 @@ def main():
             st.metric(label="Total Happiness Score", value=total_happiness)
             st.metric(label="Total Faculty Members", value=len(optimizer.faculty_members))
             st.metric(label="Total Courses", value=len(optimizer.courses))
+            st.metric(label="Not assigned courses", value=len(not_assigned_courses))
 
         # Assignments Tab
         with tabs[1]:
