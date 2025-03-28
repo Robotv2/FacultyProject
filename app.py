@@ -17,7 +17,7 @@ def main():
     if uploaded_file:
         optimizer = FacultyOptimizer(uploaded_file, max_credits_per_trimester, min_total_credits, max_total_credits)
         optimizer.solve()
-        total_happiness, assignment_details, faculty_credits, faculty_trimester_credits, not_assigned_courses = optimizer.get_results()
+        total_happiness, assignment_details, faculty_credits, faculty_trimester_credits, not_assigned_courses, solution_status  = optimizer.get_results()
 
         # Use tabs for better navigation
         tabs = st.tabs(["Summary", "Assignments", "Credits", "Not Assigned"])
@@ -25,6 +25,7 @@ def main():
         # Summary Tab
         with tabs[0]:
             st.header("Summary")
+            st.metric(label="Solution Status", value=(solution_status))
             st.metric(label="Total Happiness Score", value=total_happiness)
             st.metric(label="Total Faculty Members", value=len(optimizer.faculty_members))
             st.metric(label="Total Courses", value=len(optimizer.courses))

@@ -1,5 +1,6 @@
 import pandas as pd
-from pulp import LpMaximize, LpProblem, LpVariable, lpSum
+from pulp import LpMaximize, LpProblem, LpVariable, lpSum, LpStatus
+
 
 class FacultyOptimizer:
     def __init__(self, data_file, max_credits_per_trimester, min_total_credits, max_total_credits):
@@ -39,6 +40,7 @@ class FacultyOptimizer:
 
     def solve(self):
         self.model.solve()
+        self.solution_status = LpStatus[self.model.status]
         self.assignment = {(i, j): self.x[i, j].varValue for i in range(len(self.courses)) for j in range(len(self.faculty_members)) if self.x[i, j].varValue == 1}
 
     def get_results(self):
@@ -63,4 +65,4 @@ class FacultyOptimizer:
 
         not_assigned_courses = [course for course in self.courses if course not in assigned_courses]
 
-        return total_happiness, assignment_details, faculty_credits, faculty_trimester_credits, not_assigned_courses
+        return total_happiness, assignment_details, faculty_credits, faculty_trimester_credits, not_assigned_courses, self.solution_status
